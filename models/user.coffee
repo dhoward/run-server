@@ -8,6 +8,6 @@ userSchema.statics.findAndModify = (query, sort, doc, options, callback) ->
   return this.collection.findAndModify(query, sort, doc, options, callback)
 
 userSchema.statics.findByFacebookId = (facebookId, callback) ->
-  return this.find({ facebookId: facebookId }, callback)
+  return this.findOne({ facebookId: facebookId }, callback)
 
 module.exports = mongoose.model("User", userSchema)

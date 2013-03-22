@@ -59,18 +59,20 @@ exports.findOrCreateUser = (req, res) ->
 
 exports.createGame = (req, res) ->
   player1Id = req.query.player1
-  player1
+  player1 = null;
   player2Id = req.query.player2
-  player2
+  player2 = null;
 
   User.findByFacebookId(player1Id, (err, player) ->
     player1 = player
+
+    #console.log JSON.stringify(player1)
 
     User.findByFacebookId(player2Id, (err, player) ->
       player2 = player
 
       Game.create( 
-        { "player1": new ObjectId(player1._id), "player2": new ObjectId(player2._id)},
+        { "player1": new ObjectId(player1._id.toString()), "player2": ObjectId(player2._id.toString()), "points": 0},
         (err, game) ->
           if (err)
             console.log err
