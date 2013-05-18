@@ -4,6 +4,7 @@ ObjectId = Schema.ObjectId
 UserSchema = require('./user')
 
 gameSchema = new Schema({
+  creator: { type: ObjectId, ref: "User", required: true },
   player1: { type: ObjectId, ref: "User", required: true },
   player2: { type: ObjectId, ref: "User", required: true },
   points: {type: Number, required: true},

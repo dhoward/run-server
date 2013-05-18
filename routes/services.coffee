@@ -55,30 +55,67 @@ exports.findOrCreateUser = (req, res) ->
       else
         console.log('Created user: ' + JSON.stringify(user))
         res.send user
-  )        
+  )    
 
-exports.createGame = (req, res) ->
-  player1Id = req.query.player1
-  player1 = null;
-  player2Id = req.query.player2
-  player2 = null;
+
+exports.createRandomGame = (req, res) ->
+  player1Id = req.query.user
+  player1 = null
 
   User.findByFacebookId(player1Id, (err, player) ->
     player1 = player
 
-    #console.log JSON.stringify(player1)
-
-    User.findByFacebookId(player2Id, (err, player) ->
+    User.findRandom(player1Id, (player) ->      
       player2 = player
 
       Game.create( 
-        { "player1": new ObjectId(player1._id.toString()), "player2": ObjectId(player2._id.toString()), "points": 0},
+        { "creator": new ObjectId(player1._id.toString()), "player1": new ObjectId(player1._id.toString()), "player2": ObjectId(player2._id.toString()), "points": 0},
         (err, game) ->
           if (err)
             console.log err
           else
             console.log('Created game: ' + JSON.stringify(game)); 
-            res.send game
+
+            Game.findOne( { _id: game._id } ).populate("player1").populate("player2").exec(
+              (err, games) ->
+                if (err)
+                  console.log err
+                else
+                  console.log game
+                  res.send games                     
+            )
+      )
+    )
+  )
+
+exports.createGame = (req, res) ->
+  player1Id = req.query.user
+  player1 = null
+  player2Id = req.query.player2
+  player2 = null  
+
+  User.findByFacebookId(player1Id, (err, player) ->
+    player1 = player
+
+    User.findByFacebookId(player2Id, (err, player) ->
+      player2 = player
+
+      Game.create( 
+        { "creator": new ObjectId(player1._id.toString()), "player1": new ObjectId(player1._id.toString()), "player2": ObjectId(player2._id.toString()), "points": 0},
+        (err, game) ->
+          if (err)
+            console.log err
+          else
+            console.log('Created game: ' + JSON.stringify(game)); 
+
+            Game.findOne( { _id: game._id } ).populate("player1").populate("player2").exec(
+              (err, games) ->
+                if (err)
+                  console.log err
+                else
+                  console.log game
+                  res.send games                     
+            )
       )
     )
   )
@@ -86,11 +123,11 @@ exports.createGame = (req, res) ->
 exports.getGames = (req, res) ->
 
   userId = req.query.user
-  oid = new ObjectId(userId)
+  oid = new ObjectId(userId) 
 
   console.log "Getting games"
 
-  Game.find().or( [ { player1: oid }, { player2: oid } ] ).populate("player1").populate("player2").exec(
+  Game.find().or( [ { player1: oid }, { player2: oid } ] ).populate("player1").populate("player2").populate("lastMove").exec(
     (err, games) ->
       if (err)
         console.log err
@@ -101,23 +138,32 @@ exports.getGames = (req, res) ->
 
 exports.makeMove = (req, res) ->
 
+  console.log "Making move"
+
+  console.log req.query
+
   userId = new ObjectId(req.query.user)
   gameId = new ObjectId(req.query.game)
   promptId = new ObjectId(req.query.prompt)
+  word = req.query.promptWord
+  points = req.query.promptPoints
   imageUrl = req.query.image
 
   Move.create(
-    { player: userId, game: gameId, prompt: promptId, image: imageUrl },
+    { player: userId, game: gameId, prompt: promptId, word: word, points: points, image: imageUrl },
     (err, move) ->
+      console.log "Saved move"
       if err
         console.log err
         res.send 500
       else
         Game.update( { _id: gameId }, { $set: { lastMove: move._id } }, (err, num) ->
+          console.log "Saved game"
           if err
             console.log err
             res.send 500
           else
+            console.log "Success"
             res.send 200 )
   )
 
@@ -126,6 +172,15 @@ exports.getPrompts = (req, res) ->
   Prompt.findRandomForEachPointValue( (prompts) ->
     res.send prompts
   )
+
+guessPrompt = (move, res) ->
+  moveId = new ObjectId(move)
+  Move.update( { _id: moveId }, { $set: { guessed: true } }, (err, num) ->
+    if err
+      console.log err
+      res.send 500
+    else
+      res.send 200 )
 
 exports.correctAnswer = (req, res) ->
 
@@ -137,7 +192,7 @@ exports.correctAnswer = (req, res) ->
       console.log err
       res.send 500
     else
-      res.send 200 )
+      guessPrompt(req.query.move, res) )
 
 exports.giveUp = (req, res) ->
 
@@ -148,4 +203,4 @@ exports.giveUp = (req, res) ->
       console.log err
       res.send 500
     else
-      res.send 200 )
+      guessPrompt(req.query.move, res) )
